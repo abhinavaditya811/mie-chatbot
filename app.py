@@ -1,10 +1,13 @@
+# PYTHON 3.12 FIX (must come before any torch/streamlit)
 import asyncio
 import sys
 
-if sys.platform == "linux" or sys.platform == "darwin":  # Linux for cloud, darwin for Mac
-    if sys.version_info >= (3, 12):
-        asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
+if sys.platform in ("linux", "darwin") and sys.version_info >= (3, 12):
+    asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
 
+# -------------------------------
+# Imports
+# -------------------------------
 import streamlit as st
 from chatbot_backend import process_chat
 from chat_db import (
@@ -39,10 +42,10 @@ if "session_id" not in st.session_state:
     ]
 
 # -------------------------------
-# SIDEBAR: Chat Sessions & History
+# SIDEBAR
 # -------------------------------
 with st.sidebar:
-    st.header("🗂️ Chat Sessions")
+    st.header("📅 Chat Sessions")
 
     # ➕ New Chat Button
     if st.button("➕ New Chat"):
@@ -51,18 +54,22 @@ with st.sidebar:
         st.session_state.chat_history = []
         st.rerun()
 
-    # 🌐 Past Sessions List with Preview
+    # 🌐 Past Sessions with Clickable Preview
     st.subheader("📚 Past Chats")
     all_sessions = get_all_sessions()
-    if all_sessions:
-        for sid in all_sessions:
-            preview = get_session_preview(sid)
-            label = preview if len(preview) < 50 else preview[:47] + "..."
-            st.markdown(f"- **Session ID:** `{sid[:8]}...`  \n  Preview: _{label}_")
-    else:
-        st.info("No saved chats yet.")
+    for sid in all_sessions:
+        preview = get_session_preview(sid)
+        label = preview if len(preview) < 50 else preview[:47] + "..."
+        button_label = f"🗂 {sid[:8]}... — {label}"
+        if st.button(button_label, key=sid):
+            st.session_state.session_id = sid
+            st.session_state.messages = load_chat(sid)
+            st.session_state.chat_history = [
+                m["content"] for m in st.session_state.messages if m["role"] == "user"
+            ]
+            st.rerun()
 
-    # 🧠 Current Session
+    # 🧠 Current Session History
     st.subheader("🧠 This Session")
     if st.session_state.chat_history:
         for i, msg in enumerate(st.session_state.chat_history, 1):
@@ -77,28 +84,28 @@ with st.sidebar:
         st.rerun()
 
 # -------------------------------
-# Display Previous Messages
+# Display Chat History
 # -------------------------------
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
 # -------------------------------
-# Handle User Input
+# Handle New Message
 # -------------------------------
 user_input = st.chat_input("Ask about MIE programs, faculty, labs, or policies...")
 
 if user_input:
-    # Display user message
+    # Show user message
     st.chat_message("user").markdown(user_input)
     st.session_state.messages.append({"role": "user", "content": user_input})
     st.session_state.chat_history.append(user_input)
     save_message(st.session_state.session_id, "user", user_input)
 
-    # Generate assistant response
+    # Get assistant response
     response = process_chat(user_input, st.session_state.chat_history[:-1])
 
-    # Typing animation
+    # Typing animation for assistant
     with st.chat_message("assistant"):
         placeholder = st.empty()
         full_response = ""
