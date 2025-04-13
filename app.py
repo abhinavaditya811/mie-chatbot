@@ -1,3 +1,10 @@
+import asyncio
+import sys
+
+if sys.platform == "linux" or sys.platform == "darwin":  # Linux for cloud, darwin for Mac
+    if sys.version_info >= (3, 12):
+        asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
+
 import streamlit as st
 from chatbot_backend import process_chat
 from chat_db import (
